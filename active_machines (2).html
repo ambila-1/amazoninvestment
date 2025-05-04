@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Active Machinery</title>
+  <link rel="stylesheet" href="nav.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(to right, #e0f7fa, #fff3e0);
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 30px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      position: relative;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .card h3 {
+      margin-top: 0;
+      color: #3949ab;
+    }
+    .info {
+      margin: 10px 0;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .timer {
+      color: red;
+      font-weight: bold;
+    }
+    .claim-btn {
+      background: #26a69a;
+      color: white;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    .claim-btn:hover {
+      background: #00796b;
+    }
+  </style>
+</head>
+<body>
+  <div id="nav-placeholder"></div>
+  <h2>My Active Farm Machinery</h2>
+  <div class="grid" id="machineGrid"></div>
+
+  <script src="nav.js"></script>
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    
+    // Load navigation
+    fetch('nav.html')
+      .then(response => response.text())
+      .then(data => {
+        document.getElementById('nav-placeholder').innerHTML = data;
+      });
+    const supabaseUrl = 'https://mvmiifoaaqdrockkthtt.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12bWlpZm9hYXFkcm9ja2t0aHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxMjUwODksImV4cCI6MjA2MTcwMTA4OX0.9Ta7YYHChHIH2vzVKMbE306OKcCqA-3R497abry4-EE';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    async function loadMachines() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: machines } = await supabase
+        .from('active_machines')
+        .select('*')
+        .eq('email', user.email);
+
+      const grid = document.getElementById('machineGrid');
+      grid.innerHTML = '';
+
+      machines.forEach(machine => {
+        const rentedAt = new Date(machine.rented_at);
+        const now = new Date();
+        const msElapsed = now - rentedAt;
+        const daysElapsed = Math.floor(msElapsed / (1000 * 60 * 60 * 24));
+        const expectedIncome = machine.daily_income * machine.rent_duration;
+        const incomeGenerated = daysElapsed * machine.daily_income;
+        const lastClaim = new Date(machine.last_claim || machine.rented_at);
+        const nextClaim = new Date(lastClaim.getTime() + (24 * 60 * 60 * 1000)); // Exactly 24 hours
+        const timeLeft = Math.max(0, nextClaim.getTime() - now.getTime());
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <h3>${machine.machine_name}</h3>
+          <div class="info">Price: KES ${machine.price}</div>
+          <div class="info">Rented: ${rentedAt.toLocaleString()}</div>
+          <div class="info">Period Covered: ${daysElapsed}/${machine.rent_duration} days</div>
+          <div class="info">Expected Income: KES ${expectedIncome}</div>
+          <div class="info">Income Generated: KES ${incomeGenerated}</div>
+          <div class="info timer" id="timer-${machine.id}">Loading timer...</div>
+          <button class="claim-btn" onclick="claimIncome(${machine.id}, ${machine.daily_income})">Claim Daily Income</button>
+        `;
+        grid.appendChild(card);
+
+        updateTimer(`timer-${machine.id}`, timeLeft);
+      });
+    }
+
+    function updateTimer(id, timeLeft) {
+      const el = document.getElementById(id);
+      const interval = setInterval(() => {
+        if (timeLeft <= 0) {
+          el.textContent = "Ready to claim!";
+          clearInterval(interval);
+        } else {
+          const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+          const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+          el.textContent = `Next Claim: ${hours}h ${minutes}m ${seconds}s`;
+          timeLeft -= 1000;
+        }
+      }, 1000);
+    }
+
+    window.claimIncome = async function (id, amount) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return alert('You must be logged in.');
+
+      const { data: machine } = await supabase
+        .from('active_machines')
+        .select('last_claim')
+        .eq('id', id)
+        .single();
+
+      const lastClaim = new Date(machine.last_claim);
+      const now = new Date();
+      const hoursElapsed = (now - lastClaim) / (1000 * 60 * 60);
+
+      if (hoursElapsed < 24) {
+        return alert('You can only claim once every 24 hours.');
+      }
+
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('income_balance, total_earnings')
+        .eq('email', user.email)
+        .single();
+
+      if (error) return alert('Error fetching user data');
+
+      const { error: updateErr } = await supabase
+        .from('users')
+        .update({
+          income_balance: userData.income_balance + amount,
+          total_earnings: userData.total_earnings + amount
+        })
+        .eq('email', user.email);
+
+      if (updateErr) return alert('Error updating balance.');
+
+      await supabase.from('active_machines')
+        .update({ last_claim: new Date().toISOString() })
+        .eq('id', id);
+
+      alert('Income claimed successfully.');
+      loadMachines();
+    }
+
+    loadMachines();
+  </script>
+</body>
+</html>

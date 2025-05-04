@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farm Machinery</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      background: linear-gradient(to right, #e0f7fa, #fce4ec);
+      padding: 20px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #2c3e50;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 20px;
+      animation: fadeIn 1s ease-in;
+    }
+
+    .card {
+      background: linear-gradient(to top right, #ffffff, #f3f4f6);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      transition: transform 0.3s;
+      border-left: 5px solid #2196f3;
+    }
+
+    .card:hover {
+      transform: translateY(-8px);
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      color: #333;
+    }
+
+    .card p {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+
+    .rent-btn {
+      margin-top: 12px;
+      padding: 10px;
+      width: 100%;
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .rent-btn:hover {
+      background: #43a047;
+    }
+
+    #popup {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.4);
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .popup-card {
+      background: #fff;
+      padding: 30px;
+      border-radius: 20px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+      animation: fadeIn 0.4s;
+      text-align: center;
+    }
+
+    .popup-card h4 {
+      margin-bottom: 15px;
+      color: #444;
+    }
+
+    .popup-card p {
+      margin: 10px 0;
+      font-size: 15px;
+    }
+
+    .popup-buttons {
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .proceed-btn {
+      background: #4caf50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .cancel-btn {
+      background: #f44336;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <h2>Farm Machinery</h2>
+  <div class="grid" id="machinesContainer"></div>
+
+  <div id="popup">
+    <div class="popup-card">
+      <h4>Confirm Rental</h4>
+      <p id="popupText"></p>
+      <div class="popup-buttons">
+        <button class="proceed-btn" onclick="proceedRental()">PROCEED</button>
+        <button class="cancel-btn" onclick="closePopup()">CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    const supabase = createClient(
+      'https://mvmiifoaaqdrockkthtt.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12bWlpZm9hYXFkcm9ja2t0aHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxMjUwODksImV4cCI6MjA2MTcwMTA4OX0.9Ta7YYHChHIH2vzVKMbE306OKcCqA-3R497abry4-EE'
+    );
+
+    const machines = [
+      { name: "Tractor 2000", price: 1500, daily: 90, period: 100 },
+      { name: "PloughMaster", price: 2800, daily: 150, period: 90 },
+      { name: "SeedPlanter", price: 3000, daily: 200, period: 80 },
+      { name: "Harvester Pro", price: 4200, daily: 250, period: 75 },
+      { name: "Sprayer XT", price: 1200, daily: 85, period: 100 },
+      { name: "Irrigator Max", price: 5000, daily: 290, period: 70 },
+      { name: "TillPro V3", price: 8600, daily: 400, period: 85 },
+      { name: "Cultivator 5X", price: 10000, daily: 500, period: 65 },
+      { name: "Digger One", price: 18700, daily: 797, period: 60 },
+      { name: "Shredder Plus", price: 30000, daily: 1700, period: 90 }
+    ];
+
+    const user = await supabase.auth.getUser();
+    let selectedMachine = null;
+
+    function displayMachines() {
+      const container = document.getElementById("machinesContainer");
+      container.innerHTML = "";
+      machines.forEach((m, i) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <h3>${m.name}</h3>
+          <p>💰 Price: KES ${m.price}</p>
+          <p>📈 Daily Income: KES ${m.daily}</p>
+          <p>📅 Period: ${m.period} days</p>
+          <p>🧮 Total Income: KES ${m.daily * m.period}</p>
+          <button class="rent-btn" onclick="showPopup(${i})">RENT</button>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    window.showPopup = (index) => {
+      selectedMachine = machines[index];
+      document.getElementById("popupText").innerHTML = `
+        You are about to rent <strong>${selectedMachine.name}</strong>.<br>
+        Your deposit balance will be deducted <strong>KES ${selectedMachine.price}</strong>.
+      `;
+      document.getElementById("popup").style.display = "flex";
+    }
+
+    window.closePopup = () => {
+      document.getElementById("popup").style.display = "none";
+    }
+
+    window.proceedRental = async () => {
+      const { data: userInfo } = await supabase.auth.getUser();
+      const { data: balanceData, error } = await supabase
+        .from("user_stats")
+        .select("deposit_balance")
+        .eq("email", userInfo.user.email)
+        .single();
+
+      if (error || !balanceData || balanceData.deposit_balance < selectedMachine.price) {
+        alert("Insufficient deposit balance");
+        return;
+      }
+
+      await supabase.from("active_machines").insert({
+        email: userInfo.user.email,
+        machine_name: selectedMachine.name,
+        price: selectedMachine.price,
+        daily_income: selectedMachine.daily,
+        rent_duration: selectedMachine.period,
+        rented_at: new Date().toISOString(),
+        last_claim: new Date().toISOString()
+      });
+
+      await supabase.from("user_stats")
+        .update({ deposit_balance: balanceData.deposit_balance - selectedMachine.price })
+        .eq("email", userInfo.user.email);
+
+      closePopup();
+      alert("Machine rented successfully");
+    }
+
+    displayMachines();
+  </script>
+</body>
+</html>

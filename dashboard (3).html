@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #8e44ad, #3498db, #1abc9c);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      color: white;
+    }
+
+    @keyframes gradientBG {
+      0% {background-position: 0% 50%;}
+      50% {background-position: 100% 50%;}
+      100% {background-position: 0% 50%;}
+    }
+
+    .header {
+      background: rgba(0, 0, 0, 0.6);
+      padding: 20px;
+      text-align: center;
+      font-size: 1.2em;
+      white-space: nowrap;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .header span {
+      display: inline-block;
+      animation: moveText 12s linear infinite;
+    }
+
+    @keyframes moveText {
+      from { transform: translateX(100%); }
+      to { transform: translateX(-100%); }
+    }
+
+    .menu-icon {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 24px;
+      cursor: pointer;
+      color: white;
+    }
+
+    .side-menu {
+      position: fixed;
+      top: 0;
+      right: -260px;
+      width: 250px;
+      height: 100%;
+      background: #34495e;
+      color: white;
+      transition: right 0.3s ease-in-out;
+      padding: 20px;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.4);
+      z-index: 999;
+    }
+
+    .side-menu.active {
+      right: 0;
+    }
+
+    .side-menu .close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .side-menu a {
+      display: block;
+      padding: 12px 0;
+      color: white;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      transition: all 0.3s;
+    }
+
+    .side-menu a:hover {
+      padding-left: 10px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      padding: 30px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 25px;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      text-align: center;
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #2d3436;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+      transform: scale(1.05);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    .card:nth-child(1) { background: #e74c3c; color: white; }
+    .card:nth-child(2) { background: #3498db; color: white; }
+    .card:nth-child(3) { background: #2ecc71; color: white; }
+    .card:nth-child(4) { background: #f1c40f; color: #2d3436; }
+    .card:nth-child(5) { background: #9b59b6; color: white; }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 10px 0;
+      z-index: 1000;
+    }
+
+    .bottom-nav a {
+      color: white;
+      font-size: 14px;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: color 0.3s;
+    }
+
+    .bottom-nav a:hover {
+      color: #f39c12;
+    }
+
+    .bottom-nav i {
+      font-size: 18px;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span id="moving-title">Loading...</span>
+    <div class="menu-icon" onclick="toggleMenu()">☰</div>
+  </div>
+
+  <div class="side-menu" id="sideMenu">
+    <div class="close" onclick="toggleMenu()">✕</div>
+    <div class="menu-links" id="menuLinks" style="display: none;">
+      <a href="profile.html">My Profile</a>
+      <a href="farm_machinery.html">Farm Machinery</a>
+      <a href="active_machines.html">Active Farm Machinery</a>
+      <a href="deposit.html">Deposit</a>
+      <a href="withdraw.html">Withdraw</a>
+      <a href="withdrawal_history.html">Withdrawal history</a>
+      <a href="deposit_history.html">Deposit history</a>
+      <a href="exchange.html">Exchange</a>
+      <a href="team.html">Team</a>
+      <a href="lucky_wheel.html">Lucky wheel</a>
+      <a href="customer_service.html">Customer service</a>
+      <a href="chatbox.html">AI Chatbox</a>
+      <a href="index.html" onclick="logout()">Log Out</a>
+    </div>
+  </div>
+
+  <div class="dashboard" id="dashboardCards">
+    <div class="card" id="deposit-balance">Deposit Balance: KES 0</div>
+    <div class="card" id="total-deposit">Total Deposits: KES 0</div>
+    <div class="card" id="total-earnings">Total Earnings: KES 0</div>
+    <div class="card" id="total-withdrawals">Total Withdrawals: KES 0</div>
+    <div class="card" id="income-balance">Income Balance: KES 0</div>
+  </div>
+
+  <div class="bottom-nav">
+    <a href="dashboard.html"><i class="fas fa-home"></i><span>Home</span></a>
+    <a href="deposit.html"><i class="fas fa-coins"></i><span>Deposit</span></a>
+    <a href="withdraw.html"><i class="fas fa-hand-holding-usd"></i><span>Withdraw</span></a>
+    <a href="profile.html"><i class="fas fa-user"></i><span>Profile</span></a>
+    <a href="customer_service.html"><i class="fas fa-comments"></i><span>Chat</span></a>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabase = createClient(
+      'https://mvmiifoaaqdrockkthtt.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12bWlpZm9hYXFkcm9ja2t0aHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxMjUwODksImV4cCI6MjA2MTcwMTA4OX0.9Ta7YYHChHIH2vzVKMbE306OKcCqA-3R497abry4-EE'
+    );
+
+    async function fetchUserInfo() {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData?.session?.user;
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('full_name')
+        .eq('email', user.email)
+        .single();
+
+      const fullName = userData?.full_name || user.email;
+      document.getElementById('moving-title').innerText = `Dear ${fullName}, welcome to your dashboard. Please make a deposit to start investing.`;
+
+      const { data: stats } = await supabase
+        .from('user_stats')
+        .select('*')
+        .eq('email', user.email)
+        .single();
+
+      if (stats) {
+        document.getElementById('deposit-balance').innerText = `Deposit Balance: KES ${stats.deposit_balance || 0}`;
+        document.getElementById('total-deposit').innerText = `Total Deposits: KES ${stats.total_deposit || 0}`;
+        document.getElementById('total-earnings').innerText = `Total Earnings: KES ${stats.total_earnings || 0}`;
+        document.getElementById('total-withdrawals').innerText = `Total Withdrawals: KES ${stats.total_withdrawal || 0}`;
+        document.getElementById('income-balance').innerText = `Income Balance: KES ${stats.income_balance || 0}`;
+      }
+    }
+
+    fetchUserInfo();
+
+    window.toggleMenu = function () {
+      const sideMenu = document.getElementById("sideMenu");
+      const menuLinks = document.getElementById("menuLinks");
+      sideMenu.classList.toggle("active");
+      menuLinks.style.display = sideMenu.classList.contains("active") ? "block" : "none";
+    };
+
+    window.logout = async function() {
+      await supabase.auth.signOut();
+    };
+  </script>
+</body>
+</html>

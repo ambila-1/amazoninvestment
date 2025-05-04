@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Exchange Code</title>
+  <style>
+    body {
+      background: linear-gradient(to bottom right, #2c3e50, #3498db);
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      color: #fff;
+    }
+
+    .container {
+      background: #ffffff10;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      font-size: 28px;
+      color: #ecf0f1;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+      background: #ecf0f1;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 15px;
+      background: #00ff90;
+      color: #1c1c1c;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1em;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #00e07e;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    .popup {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .popup-content {
+      background: white;
+      color: #2ecc71;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 350px;
+    }
+
+    .popup-content button {
+      margin-top: 20px;
+      background: #2ecc71;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>Exchange Your Code</h2>
+    <input type="email" id="email" placeholder="Enter your email" />
+    <input type="text" id="code" placeholder="Enter exchange code" />
+    <button onclick="redeemCode()">Exchange</button>
+    <p class="status" id="status"></p>
+  </div>
+
+  <div class="popup" id="popup">
+    <div class="popup-content">
+      <h3 id="popup-message"></h3>
+      <button onclick="closePopup()">OK</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabase = createClient(
+      'https://mvmiifoaaqdrockkthtt.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12bWlpZm9hYXFkcm9ja2t0aHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxMjUwODksImV4cCI6MjA2MTcwMTA4OX0.9Ta7YYHChHIH2vzVKMbE306OKcCqA-3R497abry4-EE'
+    );
+
+    window.redeemCode = async () => {
+      const code = document.getElementById('code').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const status = document.getElementById('status');
+      status.textContent = '';
+      status.style.color = '';
+
+      if (!email.includes('@')) {
+        status.textContent = 'Please enter a valid email.';
+        status.style.color = 'red';
+        return;
+      }
+
+      const { data: match, error } = await supabase
+        .from('exchange_codes')
+        .select('*')
+        .eq('code', code)
+        .maybeSingle();
+
+      if (!match || error) {
+        status.textContent = 'Invalid code.';
+        status.style.color = 'red';
+        return;
+      }
+      
+      if (match.email && match.email !== email) {
+        status.textContent = 'This code is restricted to a specific user.';
+        status.style.color = 'red';
+        return;
+      }
+
+      if (match.used >= match.max_uses) {
+        status.textContent = 'This code has reached its maximum number of uses.';
+        status.style.color = 'red';
+        return;
+      }
+
+      let { data: userStats } = await supabase
+        .from('user_stats')
+        .select('income_balance, total_earnings')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (!userStats) {
+        // Create new user stats if not found
+        const { error: insertError } = await supabase
+          .from('user_stats')
+          .insert([{
+            email: email,
+            income_balance: 0,
+            total_earnings: 0
+          }]);
+          
+        if (insertError) {
+          status.textContent = 'Error creating user stats.';
+          status.style.color = 'red';
+          return;
+        }
+
+        userStats = {
+          income_balance: 0,
+          total_earnings: 0
+        };
+      }
+
+      // Update balances and mark code as used
+      const newIncomeBalance = userStats.income_balance + match.amount;
+      const newTotalEarnings = userStats.total_earnings + match.amount;
+      
+      await supabase.from('exchange_codes').update({ used: match.used + 1 }).eq('id', match.id);
+      await supabase.from('user_stats').update({ 
+        income_balance: newIncomeBalance,
+        total_earnings: newTotalEarnings
+      }).eq('email', email);
+
+      document.getElementById('popup-message').innerHTML = `
+        <h3 style="color: #2ecc71">Congratulations!</h3>
+        <p>Receive KES ${match.amount}</p>
+      `;
+
+      document.getElementById('popup-message').innerText = `Congratulations Successfully added KES ${match.amount} to your income balance!`;
+      document.getElementById('popup').style.display = 'flex';
+      document.getElementById('code').value = '';
+      document.getElementById('email').value = '';
+    };
+
+    window.closePopup = () => {
+      document.getElementById('popup').style.display = 'none';
+    };
+  </script>
+</body>
+</html>

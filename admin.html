@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #1d3557, #457b9d);
+      margin: 0;
+      padding: 0;
+      color: #fff;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 30px;
+    }
+
+    .login-box {
+      background: #f1faee;
+      color: #000;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .login-box input {
+      width: 80%;
+      padding: 15px;
+      margin: 10px 0;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    .login-box button {
+      background: #1d3557;
+      color: #fff;
+      padding: 12px 20px;
+      border: none;
+      font-size: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .admin-panel {
+      display: none;
+    }
+
+    .card {
+      background: #f1faee;
+      color: #000;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .card h3 {
+      margin-top: 0;
+    }
+
+    .btn {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 6px;
+      margin-right: 10px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .approve {
+      background: #2ecc71;
+      color: white;
+    }
+
+    .decline {
+      background: #e74c3c;
+      color: white;
+    }
+
+    .generate-box input {
+      padding: 12px;
+      margin: 10px;
+      width: 200px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+
+    .generate-box button {
+      padding: 12px 20px;
+      font-size: 1rem;
+      border-radius: 8px;
+      background: #1d3557;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="login-box" id="login-box">
+      <h2>Admin Login</h2>
+      <input type="text" id="admin-username" placeholder="Username" /><br />
+      <input type="password" id="admin-password" placeholder="Password" /><br />
+      <button onclick="loginAdmin()">Login</button>
+    </div>
+
+    <div class="admin-panel" id="admin-panel">
+      <div class="card">
+        <h3>Generate Exchange Code</h3>
+        <div class="generate-box">
+          <input type="text" id="new-code" placeholder="Code" />
+          <input type="number" id="amount" placeholder="KES Amount" />
+          <input type="email" id="code-email" placeholder="Optional: Specific User Email" />
+          <input type="number" id="max-uses" placeholder="Max Uses (Default: 1)" min="1" />
+          <button onclick="generateCode()">Generate</button>
+        </div>
+        <p id="code-message"></p>
+      </div>
+
+      <div class="card">
+        <h3>Withdrawal Requests</h3>
+        <div id="withdrawal-list">Loading...</div>
+      </div>
+
+      <div class="card">
+        <h3>Pending Deposits</h3>
+        <div id="deposits-list">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabase = createClient(
+      'https://mvmiifoaaqdrockkthtt.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12bWlpZm9hYXFkcm9ja2t0aHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxMjUwODksImV4cCI6MjA2MTcwMTA4OX0.9Ta7YYHChHIH2vzVKMbE306OKcCqA-3R497abry4-EE'
+    );
+
+    window.loginAdmin = function() {
+      const username = document.getElementById('admin-username').value;
+      const password = document.getElementById('admin-password').value;
+
+      if (username === 'admin' && password === 'amazon@2020') {
+        document.getElementById('login-box').style.display = 'none';
+        document.getElementById('admin-panel').style.display = 'block';
+        loadWithdrawals();
+        loadDeposits();
+      } else {
+        alert('Invalid credentials!');
+      }
+    }
+
+    async function loadWithdrawals() {
+      const { data, error } = await supabase
+        .from('withdrawals')
+        .select('*')
+        .eq('status', 'pending');
+
+      const container = document.getElementById('withdrawal-list');
+      container.innerHTML = '';
+
+      if (error || !data.length) {
+        container.innerHTML = '<p>No pending withdrawals.</p>';
+        return;
+      }
+
+      data.forEach(req => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <p>
+            <strong>Email:</strong> ${req.email}<br>
+            <strong>Phone:</strong> ${req.phone}<br>
+            <strong>Amount:</strong> KES ${req.amount}<br>
+            <strong>Requested:</strong> ${new Date(req.created_at).toLocaleString()}
+          </p>
+          <button class="btn approve" onclick="window.approveWithdrawal(${req.id})">Approve</button>
+          <button class="btn decline" onclick="window.declineWithdrawal(${req.id})">Decline</button>
+          <hr>`;
+        container.appendChild(div);
+      });
+    }
+
+    window.approveWithdrawal = async function(id) {
+      try {
+        // Get withdrawal details
+        const { data: withdrawal, error: withdrawalError } = await supabase
+          .from('withdrawals')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (withdrawalError) throw new Error('Error fetching withdrawal details');
+
+        // Get user stats
+        const { data: userStats, error: statsError } = await supabase
+          .from('user_stats')
+          .select('*')
+          .eq('email', withdrawal.email)
+          .single();
+
+        if (statsError) throw new Error('Error fetching user stats');
+
+        // Update user stats
+        const { error: updateError } = await supabase
+          .from('user_stats')
+          .update({
+            income_balance: userStats.income_balance - withdrawal.amount,
+            total_withdrawal: (userStats.total_withdrawal || 0) + withdrawal.amount
+          })
+          .eq('email', withdrawal.email);
+
+        if (updateError) throw new Error('Error updating user stats');
+
+        // Update withdrawal status
+        const { error: statusError } = await supabase
+          .from('withdrawals')
+          .update({ status: 'approved' })
+          .eq('id', id);
+
+        if (statusError) throw new Error('Error updating withdrawal status');
+
+        alert('Withdrawal approved successfully.');
+        loadWithdrawals();
+      } catch (error) {
+        alert(error.message);
+        console.error('Error in approveWithdrawal:', error);
+      }
+    }
+
+    window.declineWithdrawal = async function(id) {
+      const { error } = await supabase
+        .from('withdrawals')
+        .update({ status: 'declined' })
+        .eq('id', id);
+
+      if (!error) {
+        alert('Withdrawal declined.');
+        loadWithdrawals();
+      }
+    }
+
+    async function loadDeposits() {
+      const { data, error } = await supabase
+        .from('deposits')
+        .select('*')
+        .eq('status', 'pending');
+
+      const container = document.getElementById('deposits-list');
+      container.innerHTML = '';
+
+      if (error || !data.length) {
+        container.innerHTML = '<p>No pending deposits.</p>';
+        return;
+      }
+
+      data.forEach(dep => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <p>Email: <strong>${dep.email}</strong><br>
+          Amount: KES ${dep.amount}<br>
+          M-PESA Code: ${dep.mpesa_code}<br>
+          Requested: ${new Date(dep.created_at).toLocaleString()}</p>
+          <button class="btn approve" onclick="approveDeposit(${dep.id})">Approve</button>
+          <button class="btn decline" onclick="declineDeposit(${dep.id})">Decline</button>
+          <hr>`;
+        container.appendChild(div);
+      });
+    }
+
+    window.approveDeposit = async function(id) {
+      try {
+        // First get the deposit details
+        const { data: deposit, error: depositError } = await supabase
+          .from('deposits')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (depositError) throw new Error('Error fetching deposit details');
+
+        // Get or create user stats
+        let { data: userStats } = await supabase
+          .from('user_stats')
+          .select('*')
+          .eq('email', deposit.email)
+          .single();
+
+        if (!userStats) {
+          // Create new user stats if it doesn't exist
+          const { data: newStats, error: createError } = await supabase
+            .from('user_stats')
+            .insert([{
+              email: deposit.email,
+              deposit_balance: deposit.amount,
+              total_deposit: deposit.amount,
+              income_balance: 0,
+              total_earnings: 0,
+              total_withdrawal: 0
+            }])
+            .select()
+            .single();
+
+          if (createError) throw new Error('Error creating user stats');
+          userStats = newStats;
+        } else {
+          // Update existing user stats
+          const { error: updateError } = await supabase
+            .from('user_stats')
+            .update({
+              deposit_balance: (userStats.deposit_balance || 0) + deposit.amount,
+              total_deposit: (userStats.total_deposit || 0) + deposit.amount
+            })
+            .eq('email', deposit.email);
+
+          if (updateError) throw new Error('Error updating user stats');
+        }
+
+        // Update deposit status
+        const { error: statusError } = await supabase
+          .from('deposits')
+          .update({ status: 'completed' })
+          .eq('id', id);
+
+        if (statusError) throw new Error('Error updating deposit status');
+
+        alert('Deposit approved successfully.');
+        loadDeposits();
+      } catch (error) {
+        alert(error.message);
+        console.error('Error in approveDeposit:', error);
+      }
+    }
+
+    window.declineDeposit = async function(id) {
+      const { error } = await supabase
+        .from('deposits')
+        .update({ status: 'declined' })
+        .eq('id', id);
+
+      if (!error) {
+        alert('Deposit declined.');
+        loadDeposits();
+      }
+    }
+
+    window.generateCode = async function() {
+      const code = document.getElementById('new-code').value.trim();
+      const amount = parseFloat(document.getElementById('amount').value);
+
+      if (!code || isNaN(amount) || amount <= 0) {
+        document.getElementById('code-message').innerText = 'Enter a valid code and amount.';
+        return;
+      }
+
+      const email = document.getElementById('code-email').value.trim();
+      const maxUses = parseInt(document.getElementById('max-uses').value) || 1;
+      const { error } = await supabase
+        .from('exchange_codes')
+        .insert([{ 
+          code, 
+          amount, 
+          used: 0,
+          email: email || null,
+          max_uses: maxUses
+        }]);
+
+      if (error) {
+        document.getElementById('code-message').innerText = 'Error saving code.';
+      } else {
+        document.getElementById('code-message').innerText = 'Exchange code saved successfully!';
+        document.getElementById('new-code').value = '';
+        document.getElementById('amount').value = '';
+      }
+    }
+  </script>
+</body>
+</html>

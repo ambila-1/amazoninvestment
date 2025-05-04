@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Deposit</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #74ebd5, #ACB6E5);
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 600px;
+      background: #fff;
+      margin: auto;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      color: #1d3557;
+      margin-bottom: 20px;
+    }
+
+    .instructions {
+      background-color: #f1f8ff;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      border-left: 6px solid #0077b6;
+    }
+
+    .field {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+    }
+
+    .field label {
+      flex: 1;
+      font-weight: bold;
+    }
+
+    .field input {
+      flex: 2;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-left: 10px;
+    }
+
+    .copy-btn {
+      background: #1d3557;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-left: 10px;
+    }
+
+    .submit-btn {
+      background: #2ecc71;
+      border: none;
+      padding: 12px 20px;
+      font-size: 1rem;
+      color: white;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    .success {
+      color: green;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    .error {
+      color: red;
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Deposit Instructions</h2>
+    <div class="instructions">
+      <p><strong>1.</strong> Copy the <strong>Paybill</strong> and <strong>Account Number</strong> below.</p>
+      <p><strong>2.</strong> Go to M-PESA > Lipa na M-PESA > Paybill.</p>
+      <p><strong>3.</strong> Paste the Paybill and Account Number.</p>
+      <p><strong>4.</strong> Enter your deposit amount and M-PESA PIN.</p>
+      <p><strong>5.</strong> Copy the M-PESA Transaction Code and paste it below to verify your deposit.</p>
+    </div>
+
+    <div class="field">
+      <label>Paybill:</label>
+      <input type="text" value="222111" id="paybill" readonly>
+      <button class="copy-btn" onclick="copyToClipboard('paybill')">COPY</button>
+    </div>
+
+    <div class="field">
+      <label>Account No:</label>
+      <input type="text" value="077000051938" id="account" readonly>
+      <button class="copy-btn" onclick="copyToClipboard('account')">COPY</button>
+    </div>
+
+    <div class="field">
+      <label>Amount (KES):</label>
+      <input type="number" id="amount" placeholder="Enter deposit amount">
+    </div>
+
+    <div class="field">
+      <label>M-PESA Code:</label>
+      <input type="text" id="mpesa-code" placeholder="Enter M-PESA transaction code">
+    </div>
+
+    <button class="submit-btn" onclick="verifyDeposit()">Verify Deposit</button>
+
+    <p id="message" class=""></p>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabaseUrl = 'https://mvmiifoaaqdrockkthtt.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12bWlpZm9hYXFkcm9ja2t0aHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxMjUwODksImV4cCI6MjA2MTcwMTA4OX0.9Ta7YYHChHIH2vzVKMbE306OKcCqA-3R497abry4-EE';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    window.copyToClipboard = function(id) {
+      const input = document.getElementById(id);
+      input.select();
+      input.setSelectionRange(0, 99999);
+      navigator.clipboard.writeText(input.value);
+      alert(id.charAt(0).toUpperCase() + id.slice(1) + " copied!");
+    }
+
+    window.verifyDeposit = async function() {
+      const amount = document.getElementById('amount').value.trim();
+      const code = document.getElementById('mpesa-code').value.trim();
+      const message = document.getElementById('message');
+
+      if (!amount || !code) {
+        message.textContent = 'Please enter all fields.';
+        message.className = 'error';
+        return;
+      }
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        message.textContent = 'You must be logged in to verify deposit.';
+        message.className = 'error';
+        return;
+      }
+
+      const email = user.email;
+
+      // Save to Supabase
+      const { error } = await supabase.from('deposits').insert({
+        email: email,
+        amount: parseFloat(amount),
+        mpesa_code: code,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      });
+
+      if (error) {
+        message.textContent = 'Deposit failed. Try again.';
+        message.className = 'error';
+      } else {
+        message.textContent = 'Deposit verification submitted successfully!';
+        message.className = 'success';
+        document.getElementById('amount').value = '';
+        document.getElementById('mpesa-code').value = '';
+      }
+    }
+  </script>
+</body>
+</html>

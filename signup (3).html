@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign Up - Amazon Investments</title>
+  <style>
+    body {
+      background: linear-gradient(to right, #2c3e50, #3498db);
+      font-family: 'Segoe UI', sans-serif;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .signup-box {
+      background: #1e1e2f;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+      width: 90%;
+      max-width: 450px;
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+    }
+    button {
+      background: #00ffc3;
+      color: black;
+      font-weight: bold;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      font-size: 1em;
+    }
+    .login-link {
+      margin-top: 20px;
+      font-size: 0.9em;
+    }
+    .login-link a {
+      color: #00ffc3;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="signup-box">
+    <h2>Create Your Account</h2>
+    <input type="text" id="fullname" placeholder="Full Name" required />
+    <input type="email" id="email" placeholder="Email (@gmail.com only)" required />
+    <input type="tel" id="phone" placeholder="Phone Number (07... or 01...)" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <input type="password" id="confirmPassword" placeholder="Confirm Password" required />
+    <button onclick="signUp()">Sign Up</button>
+    <div class="login-link">
+      Already have an account? <a href="index.html">Login</a>
+    </div>
+    <p id="status"></p>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabase = createClient(
+      'https://mvmiifoaaqdrockkthtt.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12bWlpZm9hYXFkcm9ja2t0aHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxMjUwODksImV4cCI6MjA2MTcwMTA4OX0.9Ta7YYHChHIH2vzVKMbE306OKcCqA-3R497abry4-EE'
+    );
+
+    window.signUp = async () => {
+      const fullname = document.getElementById('fullname').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const status = document.getElementById('status');
+
+      status.textContent = '';
+
+      if (!email.endsWith('@gmail.com')) {
+        status.textContent = 'Email must be a @gmail.com address';
+        status.style.color = 'yellow';
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        status.textContent = 'Passwords do not match';
+        status.style.color = 'orange';
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password
+      });
+
+      if (error) {
+        status.textContent = error.message;
+        status.style.color = 'red';
+        return;
+      }
+
+      // Add user to "users" table with all required fields
+      const { error: userError } = await supabase.from('users').insert([
+        { 
+          full_name: fullname, 
+          email, 
+          phone,
+          income_balance: 0,
+          deposit_balance: 0,
+          total_deposit: 0,
+          total_earnings: 0,
+          total_withdrawal: 0,
+          status: 'active'
+        }
+      ]);
+
+      if (userError) {
+        console.error('Error creating user data:', userError);
+        status.textContent = 'ACCOUNT CREATED, PLEASE LOG IN.';
+        status.style.color = 'green';
+        return;
+      }
+
+      status.textContent = 'Sign up successful. Please check your email.';
+      status.style.color = 'lightgreen';
+    };
+  </script>
+</body>
+</html>

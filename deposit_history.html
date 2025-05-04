@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Deposit History</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f9ff;
+      padding: 30px;
+      margin: 0;
+      color: #333;
+    }
+
+    h2 {
+      text-align: center;
+      color: #2c3e50;
+    }
+
+    .history-container {
+      max-width: 900px;
+      margin: 40px auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 12px 15px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    th {
+      background-color: #3498db;
+      color: white;
+    }
+
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+
+    .status {
+      font-weight: bold;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .pending {
+      background-color: #f9e79f;
+      color: #7d6608;
+    }
+
+    .approved {
+      background-color: #d4efdf;
+      color: #1e8449;
+    }
+
+    .rejected {
+      background-color: #f5b7b1;
+      color: #922b21;
+    }
+
+    .no-records {
+      text-align: center;
+      margin-top: 30px;
+      font-style: italic;
+      color: gray;
+    }
+  </style>
+</head>
+<body>
+  <div class="history-container">
+    <h2>Deposit History</h2>
+    <table id="history-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Amount (KES)</th>
+          <th>M-PESA Code</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="history-body">
+        <!-- Rows will be populated dynamically -->
+      </tbody>
+    </table>
+    <p id="no-records" class="no-records" style="display: none;">No deposit history found.</p>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabaseUrl = 'https://mvmiifoaaqdrockkthtt.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12bWlpZm9hYXFkcm9ja2t0aHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxMjUwODksImV4cCI6MjA2MTcwMTA4OX0.9Ta7YYHChHIH2vzVKMbE306OKcCqA-3R497abry4-EE';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const loadDeposits = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        document.getElementById("no-records").textContent = "Please log in to view your history.";
+        document.getElementById("no-records").style.display = "block";
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('deposits')
+        .select('*')
+        .eq('email', user.email)
+        .order('created_at', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        document.getElementById("no-records").style.display = "block";
+        return;
+      }
+
+      const body = document.getElementById('history-body');
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${new Date(row.created_at).toLocaleString()}</td>
+          <td>KES ${row.amount}</td>
+          <td>${row.mpesa_code}</td>
+          <td><span class="status ${row.status.toLowerCase()}">${row.status}</span></td>
+        `;
+        body.appendChild(tr);
+      });
+    };
+
+    loadDeposits();
+  </script>
+</body>
+</html>
